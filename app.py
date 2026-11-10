@@ -23,23 +23,25 @@ try:
     # Limpiar nombres de columnas de caracteres extraños
     df.columns = df.columns.str.replace('ÿ', 'i', regex=False)
 
-    # Seleccionar únicamente columnas que contengan números de forma segura
-    # Rellenamos los espacios vacíos con ceros o con la media para no perder filas
+    # Seleccionar únicamente columnas numéricas
     df_num = df.select_dtypes(include=[np.number]).copy()
     
-    # Si la columna ID está presente, la quitamos para que no afecte la predicción
+    # Quitar la columna ID si está presente
     if 'ID' in df_num.columns:
         df_num = df_num.drop(columns=['ID'])
 
-    # Rellenar valores nulos (NaN) con la mediana de cada columna en lugar de borrarlos
-    df_num = df_num.fillna(df_num.median())
+    # Eliminar columnas que estén completamente vacías
+    df_num = df_num.dropna(how='all', axis=1)
+    
+    # Rellenar cualquier valor nulo restante con 0 para evitar errores de NaN
+    df_num = df_num.fillna(0)
 
     if df_num.shape[0] > 5 and df_num.shape[1] >= 2:
         # Definir X (variables predictoras) y Y (última columna numérica como objetivo)
         X = df_num.iloc[:, :-1]
         Y = df_num.iloc[:, -1]
 
-        # Ajustar el test_size de manera segura según el número de filas disponibles
+        # Dividir datos de forma segura
         test_s = 0.2 if len(df_num) > 10 else 0.3
         X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=test_s, random_state=42)
 
@@ -66,7 +68,6 @@ try:
                 val_max = float(X[col].max())
                 val_mean = float(X[col].mean())
                 
-                # Evitar rangos inválidos si el min y max son iguales
                 if val_min == val_max:
                     val_max = val_min + 1.0
 
@@ -95,7 +96,7 @@ try:
                 st.success("¡Predicción calculada con éxito!")
 
     else:
-        st.error("El archivo no tiene suficientes filas o columnas numéricas para procesar los modelos.")
+        st.error("El archivo no tiene suficientes filas o columnas numéricas válidas para procesar los modelos.")
 
 except Exception as e:
     st.error(f"Ocurrió un error al procesar los datos: {e}")
