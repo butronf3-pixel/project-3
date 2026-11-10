@@ -6,74 +6,89 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
-st.title("Predictor de Rendimiento y Comportamiento Académico")
-st.write("Proyecto 3 - Métodos Estadísticos: Modelos de Ridge Regression y Random Forest")
+# Configuración de la página en modo ancho para mejor visualización
+st.set_page_config(page_title="Predictor Académico UAP", page_icon="📊", layout="wide")
+
+st.title("📊 Predictor de Rendimiento Académico y Comportamiento")
+st.markdown("### Proyecto 3 - Métodos Estadísticos (Ridge Regression & Random Forest)")
+st.markdown("---")
 
 @st.cache_data
 def cargar_datos():
-    # Leer el archivo con codificación para evitar errores de símbolos
     df = pd.read_csv('datos_estudiantes.csv', encoding='latin1')
     return df
 
 try:
     df = cargar_datos()
-    st.success("¡Datos cargados correctamente desde GitHub!")
+    
+    # Limpieza automática de caracteres extraños y errores de codificación
+    df.columns = df.columns.str.replace('ÿ', 'i', regex=False).str.replace('', 'i', regex=False)
+    
+    # Seleccionar solo columnas numéricas y descartar el ID si existe
+    df_num = df.select_dtypes(include=[np.number]).copy()
+    if 'ID' in df_num.columns:
+        df_num = df_num.drop(columns=['ID'])
+    
+    df_num = df_num.dropna(how='any')
 
-    # Limpiamos las columnas que no son numéricas para la predicción (como fechas, correos, nombres)
-    # Seleccionamos únicamente columnas numéricas o convertimos las que tengan datos válidos
-    df_num = df.select_dtypes(include=[np.number]).dropna(how='all', axis=1)
-
-    # Si hay suficientes columnas numéricas
     if df_num.shape[1] >= 2:
-        # Rellenamos valores vacíos con la media de cada columna para evitar errores de NaN
-        df_num = df_num.fillna(df_num.mean())
-
-        # Definimos X (variables predictoras/comportamientos) y Y (calificación a predecir)
-        # La última columna numérica será Y (calificación), y el resto serán X (hábitos/preguntas)
+        # Definir X (variables independientes) y Y (variable objetivo)
         X = df_num.iloc[:, :-1]
         Y = df_num.iloc[:, -1]
 
-        if len(X.columns) > 0:
-            X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
-            # 1. Entrenar Ridge Regression
-            ridge = Ridge(alpha=1.0)
-            ridge.fit(X_train, y_train)
-            ridge_pred = ridge.predict(X_test)
+        # Entrenar Modelos
+        ridge = Ridge(alpha=1.0)
+        ridge.fit(X_train, y_train)
+        ridge_pred = ridge.predict(X_test)
 
-            # 2. Entrenar Random Forest
-            rf = RandomForestRegressor(n_estimators=100, random_state=42)
-            rf.fit(X_train, y_train)
-            rf_pred = rf.predict(X_test)
+        rf = RandomForestRegressor(n_estimators=100, random_state=42)
+        rf.fit(X_train, y_train)
+        rf_pred = rf.predict(X_test)
 
-            st.subheader("Evaluación de los Modelos de Predicción")
-            st.write(f"**Ridge Regression - R2 Score:** {r2_score(y_test, ridge_pred):.2f}")
-            st.write(f"**Random Forest - R2 Score:** {r2_score(y_test, rf_pred):.2f}")
+        # Diseño de la interfaz en dos columnas principales
+        col_izq, col_der = st.columns([1.3, 1], gap="large")
 
-            st.markdown("---")
-            st.subheader("Simulador de Comportamiento y Predicción")
-            st.write("Modifica los valores de los hábitos de estudio para predecir el resultado:")
-
-            # Controles interactivos para cada variable predictora
+        with col_izq:
+            st.subheader("🎛️ Simulador de Variables y Hábitos")
+            st.write("Ajusta los valores para simular el comportamiento del estudiante:")
+            
             valores_usuario = []
             for col in X.columns:
+                # Limpiar nombre de la columna para que se lea impecable
+                nombre_limpio = col.replace("?", "").replace("What was your grade the last period? (Specify) Example: 6.7", "Calificación periodo anterior").strip()
                 val_min = float(X[col].min())
                 val_max = float(X[col].max())
                 val_mean = float(X[col].mean())
-                val = st.slider(f"Variable / Pregunta: {col}", val_min, val_max, val_mean)
+                
+                val = st.slider(f"**{nombre_limpio}**", val_min, val_max, val_mean)
                 valores_usuario.append(val)
 
-            if st.button("Predecir Comportamiento / Calificación"):
+        with col_der:
+            st.subheader("📈 Rendimiento de los Modelos")
+            
+            # Métricas de precisión (R² Score)
+            m1, m2 = st.columns(2)
+            m1.metric("Ridge R²", f"{r2_score(y_test, ridge_pred):.2f}")
+            m2.metric("Random Forest R²", f"{r2_score(y_test, rf_pred):.2f}")
+            
+            st.markdown("---")
+            st.subheader("🎯 Resultado de la Predicción")
+            
+            if st.button("🚀 Calcular Predicción", use_container_width=True):
                 entrada = np.array([valores_usuario])
                 res_ridge = ridge.predict(entrada)[0]
                 res_rf = rf.predict(entrada)[0]
 
-                st.success(f"📌 **Predicción estimada (Ridge Regression):** {res_ridge:.2f}")
-                st.success(f"🌲 **Predicción estimada (Random Forest):** {res_rf:.2f}")
-        else:
-            st.error("No hay suficientes variables numéricas de comportamiento para entrenar el modelo.")
+                res_c1, res_c2 = st.columns(2)
+                res_c1.metric("Modelo Ridge", f"{res_ridge:.2f}")
+                res_c2.metric("Random Forest", f"{res_rf:.2f}")
+                
+                st.success("¡Predicción calculada correctamente con ambos algoritmos!")
+
     else:
-        st.error("El archivo CSV no contiene suficientes columnas numéricas legibles.")
+        st.error("No se encontraron suficientes columnas numéricas válidas para entrenar los modelos.")
 
 except Exception as e:
-    st.error(f"Error en el procesamiento: {e}")
+    st.error(f"Ocurrió un error al procesar los datos: {e}")
