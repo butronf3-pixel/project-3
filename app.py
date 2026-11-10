@@ -11,8 +11,8 @@ st.write("Proyecto 3 - Métodos Estadísticos: Modelos de Ridge Regression y Ran
 
 @st.cache_data
 def cargar_datos():
-    # Intenta leer el archivo CSV desde la misma carpeta
-    df = pd.read_csv('datos_estudiantes.csv')
+    # Añadimos encoding='latin1' para evitar el error de caracteres especiales
+    df = pd.read_csv('datos_estudiantes.csv', encoding='latin1')
     return df
 
 try:
